@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#151515">
+<meta name="description" content="安靜、不評價的體重紀錄工具。資料只存在這台裝置。">
+<title>體重進度 · Weight Progress</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Fonts are optional polish: never let a slow network block the app's scripts. -->
+<link rel="stylesheet" media="print" onload="this.media='all'"
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500;600&family=Noto+Sans+TC:wght@400;500&display=swap">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500;600&family=Noto+Sans+TC:wght@400;500&display=swap"></noscript>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="stage">
+  <div class="device" id="device">
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="brand-name" id="brandName">我的進度</span>
+      </div>
+      <div class="topbar-right">
+        <span class="page-index" id="pageIndex">01 / 03</span>
+        <button class="icon-btn" id="openSettings" aria-label="開啟設定" title="設定">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3.1"></circle>
+            <path d="M12 2.4v2.5M12 19.1v2.5M2.4 12h2.5M19.1 12h2.5M5.2 5.2l1.8 1.8M17 17l1.8 1.8M18.8 5.2L17 7M7 17l-1.8 1.8"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="pages" id="pages" tabindex="0" aria-label="進度、BMI 與走勢三頁">
+
+      <section class="page" aria-label="進度">
+        <div class="page-inner">
+          <div class="hero reveal" style="--d:0ms">
+            <p class="hero-label">現在體重</p>
+            <div class="hero-value"><span id="heroNum">—</span><span class="hero-unit" id="heroUnit">kg</span></div>
+            <p class="hero-sub" id="heroSub">尚未記錄</p>
+          </div>
+
+          <div class="progress-block reveal" style="--d:60ms">
+            <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+            <div class="progress-head">
+              <span id="progressSummary">已減 — · 還差 —</span>
+              <span class="mono" id="progressPct">—</span>
+            </div>
+          </div>
+
+          <div class="stat-grid reveal" style="--d:120ms">
+            <div class="stat"><p class="stat-label">起始體重</p><p class="stat-value" id="statStart">—</p></div>
+            <div class="stat"><p class="stat-label">目標體重</p><p class="stat-value" id="statGoal">—</p></div>
+            <div class="stat"><p class="stat-label">已減</p><p class="stat-value" id="statLost">—</p></div>
+            <div class="stat"><p class="stat-label">還差</p><p class="stat-value" id="statLeft">—</p></div>
+          </div>
+
+          <div class="note-card reveal" style="--d:180ms">
+            <span class="note-rule" aria-hidden="true"></span>
+            <p id="paceNote">多記錄幾天，這裡會出現近期節奏。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" aria-label="BMI">
+        <div class="page-inner">
+          <div class="hero hero-compact reveal" style="--d:0ms">
+            <p class="hero-label">身體質量指數</p>
+            <div class="hero-value"><span id="bmiNum">—</span></div>
+            <p class="hero-sub"><span class="band-pill" id="bmiBandLabel">—</span></p>
+          </div>
+
+          <div class="bmi-block reveal" style="--d:60ms">
+            <div class="bmi-bar" id="bmiBar">
+              <div class="bmi-seg s-under"></div>
+              <div class="bmi-seg s-normal"></div>
+              <div class="bmi-seg s-over"></div>
+              <div class="bmi-seg s-obese"></div>
+              <div class="bmi-marker m-now" id="bmiMarkerNow"><i></i></div>
+              <div class="bmi-marker m-goal" id="bmiMarkerGoal"><i></i></div>
+            </div>
+            <div class="bmi-ticks" aria-hidden="true">
+              <span style="left:17.5%">18.5</span>
+              <span style="left:45%">24</span>
+              <span style="left:60%">27</span>
+            </div>
+          </div>
+
+          <div class="bmi-legend reveal" style="--d:120ms" id="bmiLegend"></div>
+
+          <div class="note-card reveal" style="--d:180ms">
+            <span class="note-rule" aria-hidden="true"></span>
+            <p id="bmiNote">身高可在右上角設定調整。</p>
+          </div>
+
+          <p class="fine-print reveal" style="--d:240ms">分級採亞洲標準：18.5 / 24 / 27。BMI 僅供參考，不構成醫療建議。</p>
+        </div>
+      </section>
+
+      <section class="page" aria-label="走勢">
+        <div class="page-inner page-chart">
+          <div class="delta-row reveal" style="--d:0ms" id="deltaRow"></div>
+
+          <div class="range-row reveal" style="--d:60ms" id="rangeRow" role="group" aria-label="圖表時間範圍"></div>
+
+          <div class="chart-card reveal" style="--d:100ms">
+            <div class="chart-head">
+              <span id="chartRange">—</span>
+              <span class="mono" id="chartCount">— 筆</span>
+            </div>
+            <div class="chart-host" id="chartHost"></div>
+            <div class="chart-legend" id="chartLegend"></div>
+          </div>
+
+          <div class="quick-toggles reveal" style="--d:140ms" id="quickToggles"></div>
+        </div>
+      </section>
+
+    </main>
+
+    <nav class="dots" id="dots" aria-label="頁面切換">
+      <button class="dot on" data-page="0" aria-label="第 1 頁，進度" aria-current="true"></button>
+      <button class="dot" data-page="1" aria-label="第 2 頁，BMI"></button>
+      <button class="dot" data-page="2" aria-label="第 3 頁，走勢"></button>
+    </nav>
+
+    <div class="dock">
+      <div class="dock-card">
+        <div class="dock-top">
+          <div class="dock-date">
+            <button type="button" class="date-trigger" id="entryDateTrigger" aria-label="選擇紀錄日期">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="4.5" width="17.6" height="16.5" rx="2.4"/><path d="M3.2 9h17.6M8 2.6v3.8M16 2.6v3.8"/></svg>
+              <span class="dt-label" id="entryDateLabel">今天</span>
+            </button>
+            <input type="date" id="entryDate" hidden>
+          </div>
+        </div>
+        <div class="dock-main">
+          <div class="dock-input-wrap">
+            <input type="number" id="weightInput" class="weight-input" inputmode="decimal" step="0.1" placeholder="—" aria-label="體重數值">
+            <span class="weight-unit" id="weightUnitSuffix">kg</span>
+          </div>
+          <button class="record-btn" id="recordBtn" type="button">記錄</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <div class="onboard-layer" id="onboardLayer" hidden>
+      <div class="onboard-backdrop" id="onboardBackdrop"></div>
+      <section class="onboard" role="dialog" aria-modal="true" aria-labelledby="onboardTitle">
+        <div class="onboard-head">
+          <div>
+            <h2 class="onboard-title" id="onboardTitle">先建立你的目標</h2>
+          </div>
+          <button class="onboard-close" id="onboardClose" aria-label="關閉" type="button">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+          </button>
+        </div>
+        <p class="onboard-sub">先填有填的就好，這些都能之後在設定裡修改。</p>
+        <div class="onboard-fields">
+          <div class="field"><label for="obHeight">身高</label><div class="field-input"><input type="number" id="obHeight" step="0.5" min="80" max="250" placeholder="—"><span>cm</span></div></div>
+          <div class="field"><label for="obWeight">目前體重</label><div class="field-input"><input type="number" id="obWeight" step="0.1" placeholder="—"><span id="obWeightUnit">kg</span></div></div>
+          <div class="field"><label for="obGoal">目標體重</label><div class="field-input"><input type="number" id="obGoal" step="0.1" placeholder="—"><span id="obGoalUnit">kg</span></div></div>
+          <div class="field"><label for="obDate">目標日期</label><div class="field-input">
+            <input type="date" id="obDate" hidden>
+            <button type="button" class="date-trigger" id="obDateTrigger" aria-label="選擇目標日期">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="4.5" width="17.6" height="16.5" rx="2.4"/><path d="M3.2 9h17.6M8 2.6v3.8M16 2.6v3.8"/></svg>
+              <span class="dt-label" id="obDateLabel">選擇日期</span>
+            </button>
+          </div></div>
+        </div>
+        <button class="onboard-btn" id="onboardBtn" type="button">送出</button>
+      </section>
+    </div>
+  </div>
+
+  <p class="stage-hint">左右滑動切換頁面 · 資料僅存於此瀏覽器</p>
+</div>
+
+<div class="sheet-layer" id="sheetLayer" hidden>
+  <div class="sheet-backdrop" id="sheetBackdrop"></div>
+  <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sheet-grab" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <div>
+        <h2 id="sheetTitle">設定</h2>
+      </div>
+      <button class="sheet-close" id="closeSettings" aria-label="關閉設定" type="button">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+      </button>
+    </div>
+    <div class="sheet-body" id="sheetBody"></div>
+  </section>
+</div>
+
+<script src="model.js"></script>
+<!-- Test-only data loader. Inert unless ?mock=<scenario> is in the URL. -->
+<script src="mock.js"></script>
+<script src="datepicker.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -371,13 +371,38 @@
      The SVG keeps a fixed 340x300 design viewBox. A "camera" maps a data window
      (cam.x, cam.w in days; cam.y, cam.h in kg) onto that box. Every data point
      is always drawn; panning/zooming only moves the window, so nothing is ever
-     dropped. world holds the full data domain used to clamp the camera. */
+     dropped. world holds the full data domain used to clamp the camera.
+     By default the vertical window auto-fits the visible time range (autoY),
+     so zooming in on the time axis cannot push reference lines such as
+     目標軌道 off-screen. Deliberately dragging vertically switches to manual
+     y control; choosing another range or editing data restores auto-fit. */
 
   function niceDayStep(span) {
     var target = span / 5;
     var steps = [1, 2, 3, 5, 7, 10, 14, 21, 30, 60, 90, 120, 180, 365];
     for (var i = 0; i < steps.length; i++) if (steps[i] >= target) return steps[i];
     return 365;
+  }
+
+  /* 目標軌道 is a curve defined between the newest reading and the target date.
+     Sample ONLY the part that intersects the given x window, at a resolution
+     tied to that slice (not to the whole goal span), and always include both
+     edge intersections. Sampling the whole span and then filtering left zero
+     or one point whenever the camera was zoomed in past the sample spacing,
+     which made the dashed line disappear. Clipping at the exact edges also
+     keeps the line continuous right up to the plot borders at any zoom. */
+  function trajSlice(ctx, xMin, xMax, steps) {
+    var tr = ctx.traj, pts = [];
+    if (!tr) return pts;
+    var a = Math.max(tr.startDays, xMin);
+    var b = Math.min(tr.targetDays, xMax);
+    if (!(b > a)) return pts;          /* window lies outside the trajectory */
+    var n = Math.max(2, steps || 48);
+    for (var i = 0; i <= n; i++) {
+      var t = a + (b - a) * i / n;
+      pts.push([t, tr.at(t)]);
+    }
+    return pts;
   }
 
   function worldBounds(ctx) {
@@ -398,18 +423,11 @@
       if (qTo > qFrom) {
         for (var q = 0; q <= 32; q++) {
           var tq = qFrom + (qTo - qFrom) * q / 32;
-          var pr = ctx.model.predictAt(tq);
-          var hw = Math.min(5, ctx.model.halfWidthAt(tq));
-          vals.push(pr, pr + hw, pr - hw);
+          vals.push(ctx.model.predictAt(tq));
         }
       }
     }
-    if (ctx.traj) {
-      for (var q2 = 0; q2 <= 24; q2++) {
-        var tt = ctx.traj.startDays + (ctx.traj.targetDays - ctx.traj.startDays) * q2 / 24;
-        if (tt >= xMin && tt <= xMax) vals.push(ctx.traj.at(tt));
-      }
-    }
+    trajSlice(ctx, xMin, xMax, 96).forEach(function (p) { vals.push(p[1]); });
     var vmin = Math.min.apply(null, vals), vmax = Math.max.apply(null, vals);
     var pad = (vmax - vmin) * 0.11; if (pad < 0.3) pad = 0.3;
     return { xMin: xMin, xMax: xMax, yMin: vmin - pad, yMax: vmax + pad,
@@ -427,17 +445,10 @@
     if (useTrend && fEnd > cFrom) {
       for (var q = 0; q <= 32; q++) {
         var tq = cFrom + (fEnd - cFrom) * q / 32;
-        var pred = model.predictAt(tq);
-        var hw = Math.min(5, model.halfWidthAt(tq));
-        vals.push(pred, pred + hw, pred - hw);
+        vals.push(model.predictAt(tq));
       }
     }
-    if (ctx.traj) {
-      for (var q2 = 0; q2 <= 24; q2++) {
-        var tt = ctx.traj.startDays + (ctx.traj.targetDays - ctx.traj.startDays) * q2 / 24;
-        if (tt >= xMin && tt <= xMax) vals.push(ctx.traj.at(tt));
-      }
-    }
+    trajSlice(ctx, xMin, xMax, 48).forEach(function (p) { vals.push(p[1]); });
     if (!vals.length) vals.push(e[e.length - 1].kg);
     var vmin = Math.min.apply(null, vals), vmax = Math.max.apply(null, vals);
     var span = xMax - xMin;
@@ -454,7 +465,19 @@
 
   function defaultCamera(win) {
     var fy = fitY(chartCtx, win.xMin, win.xMax);
-    return { x: win.xMin, w: win.span, y: fy.yMin, h: fy.yMax - fy.yMin, key: win.key };
+    return { x: win.xMin, w: win.span, y: fy.yMin, h: fy.yMax - fy.yMin,
+             key: win.key, autoY: true };
+  }
+
+  /* Re-frame the y axis for the currently visible x window. Zooming used to
+     shrink cam.h around the pointer, which quickly pushed the goal trajectory
+     (and other reference lines) outside the plot even though it was drawn. */
+  function refitCameraY() {
+    if (!chartCtx || !cam || !world || !cam.autoY) return;
+    var fy = fitY(chartCtx, cam.x, cam.x + cam.w);
+    cam.y = fy.yMin;
+    cam.h = Math.max(0.8, fy.yMax - fy.yMin);
+    clampCamera();
   }
 
   /* Cheap content hash of the readings. When a record is added or edited the
@@ -551,30 +574,16 @@
       s.push(chartLabel(L + pw - 2, gy - 5, '目標 ' + W.fmtKg(state.goal.kg, state.unit, 1), 'var(--clay)'));
     }
 
-    /* uncertainty band behind the trend */
-    if (useTrend && fEnd > cFrom) {
-      var up = [], dn = [];
-      for (var b = 0; b <= 40; b++) {
-        var tb = cFrom + (Math.min(fEnd, xMax) - cFrom) * b / 40;
-        var pb = model.predictAt(tb);
-        var hb = Math.min(5, model.halfWidthAt(tb));
-        up.push([tb, pb + hb]); dn.push([tb, pb - hb]);
-      }
-      s.push('<polygon points="' + path(up) + ' ' + path(dn.slice().reverse()) +
-        '" style="fill:var(--curve);opacity:.09" />');
-    }
+    /* No shaded uncertainty band: the forecast reads as a single dashed line.
+       Keeping the band here used to produce a hard-edged blue wedge that started
+       at the 2-week fit boundary and sat on top of the historical readings. */
 
-    /* prescriptive path, only when a target date exists */
-    if (ctx.traj) {
-      var tr = [];
-      for (var g2 = 0; g2 <= 40; g2++) {
-        var tg = ctx.traj.startDays + (ctx.traj.targetDays - ctx.traj.startDays) * g2 / 40;
-        if (tg >= xMin && tg <= xMax) tr.push([tg, ctx.traj.at(tg)]);
-      }
-      if (tr.length > 1) {
-        s.push('<polyline points="' + path(tr) + '" fill="none" ' +
-          'style="stroke:var(--clay);stroke-width:1.3;stroke-dasharray:7 5;opacity:.7" />');
-      }
+    /* prescriptive path, only when a target date exists. Drawn from the
+       visible slice of its domain so it survives pan / pinch / wheel zoom. */
+    var tr = trajSlice(ctx, xMin, xMax, 48);
+    if (tr.length > 1) {
+      s.push('<polyline points="' + path(tr) + '" fill="none" ' +
+        'style="stroke:var(--clay);stroke-width:1.3;stroke-dasharray:7 5;opacity:.7" />');
     }
 
     /* 7-day smoothing (whole series; clipped to the window) */
@@ -666,9 +675,13 @@
   }
   function panBy(dxD, dyD) {
     if (!cam) return;
+    /* A mostly-vertical drag is an explicit request to take over the y axis;
+       ignore the small y jitter that comes with a horizontal swipe. */
+    if (Math.abs(dyD) > 2 && Math.abs(dyD) > Math.abs(dxD)) cam.autoY = false;
     cam.x -= dxD / CHART_PW * cam.w;
     cam.y += dyD / CHART_PH * cam.h;
-    clampCamera();
+    if (cam.autoY && dxD) refitCameraY();
+    else clampCamera();
     scheduleRerender();
   }
   function zoomAt(dx, dy, factor) {
@@ -680,6 +693,7 @@
     cam.w = newW; cam.h = newH;
     cam.x = fx - (dx - CHART_L) / CHART_PW * cam.w;
     cam.y = fy - cam.h + (dy - CHART_T) / CHART_PH * cam.h;
+    refitCameraY();
     clampCamera();
     scheduleRerender();
   }
@@ -719,6 +733,7 @@
         /* pan by midpoint movement too */
         cam.x -= (m.x - pinchPrev.m.x) / CHART_PW * cam.w;
         cam.y += (m.y - pinchPrev.m.y) / CHART_PH * cam.h;
+        refitCameraY();
         clampCamera();
         scheduleRerender();
       }
@@ -965,10 +980,37 @@
      when nothing is filled the button doubles as "略過". */
 
   var ONBOARD_IDS = ['obHeight', 'obWeight', 'obGoal', 'obDate'];
+  var onboardUnit = 'kg';
+
+  /* Reflects the unit segmented control in the onboarding modal. When the unit
+     changes we re-express any weight already typed in the old unit so the user
+     does not have to re-enter it; the two suffix labels follow the selection. */
+  function setOnboardUnit(u) {
+    if (u !== onboardUnit) {
+      ['obWeight', 'obGoal'].forEach(function (id) {
+        var el = $(id);
+        var n = parseFloat(el.value);
+        if (isFinite(n)) el.value = W.kgToUnit(W.unitToKg(n, onboardUnit), u).toFixed(1);
+      });
+    }
+    onboardUnit = u;
+    var seg = $('obUnit');
+    if (seg) {
+      var btns = seg.querySelectorAll('button');
+      for (var i = 0; i < btns.length; i++) {
+        var on = btns[i].getAttribute('data-unit') === u;
+        btns[i].classList.toggle('on', on);
+        btns[i].setAttribute('aria-pressed', String(on));
+      }
+    }
+    $('obWeightUnit').textContent = W.unitLabel(u);
+    $('obGoalUnit').textContent = W.unitLabel(u);
+    refreshOnboardBtn();
+  }
 
   function openOnboard() {
-    $('obWeightUnit').textContent = unit();
-    $('obGoalUnit').textContent = unit();
+    onboardUnit = state.unit;
+    setOnboardUnit(state.unit);
     ONBOARD_IDS.forEach(function (id) { $(id).value = ''; });
     $('onboardLayer').hidden = false;
     refreshOnboardBtn();
@@ -991,7 +1033,7 @@
 
   function submitOnboard() {
     var any = false;
-    var u = state.unit;
+    var u = onboardUnit;
 
     var h = parseFloat($('obHeight').value);
     if (isFinite(h) && h >= 80 && h <= 250) { state.heightCm = h; any = true; }
@@ -1021,7 +1063,11 @@
       any = true;
     }
 
-    if (any) { save(); renderAll(); }
+    if (any || u !== state.unit) {
+      state.unit = u;
+      save();
+      renderAll();
+    }
     closeOnboard();
   }
 
@@ -1106,6 +1152,11 @@
     $('onboardClose').addEventListener('click', closeOnboard);
     $('onboardBackdrop').addEventListener('click', closeOnboard);
     $('onboardBtn').addEventListener('click', submitOnboard);
+    var obUnit = $('obUnit');
+    if (obUnit) obUnit.addEventListener('click', function (ev) {
+      var b = ev.target.closest('[data-unit]');
+      if (b) setOnboardUnit(b.getAttribute('data-unit'));
+    });
     ONBOARD_IDS.forEach(function (id) {
       $(id).addEventListener('input', refreshOnboardBtn);
     });

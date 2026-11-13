@@ -69,7 +69,7 @@ button {
 }
 
 button:focus-visible,
-input:focus-visible,
+input:focus-visible:not(.weight-input),
 .pages:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -993,8 +993,12 @@ input:focus-visible,
 }
 
 .dock-input-wrap {
-  flex: 1 1 auto;
+  /* Shrink-wrap so the focus underline only covers the number + unit,
+     instead of stretching across the whole row to the record button. */
+  flex: 0 1 auto;
   min-width: 0;
+  margin-right: auto;
+  width: fit-content;
   display: flex;
   align-items: baseline;
   justify-content: flex-start;
@@ -1557,6 +1561,21 @@ input:focus-visible,
 
 .onboard-fields .field-input input {
   width: 110px;
+}
+
+.onboard-unit-field {
+  gap: 14px;
+}
+
+.onboard-unit {
+  width: 184px;
+  flex: 0 0 auto;
+  padding: 3px;
+}
+
+.onboard-unit button {
+  padding: 7px 6px;
+  font-size: 12px;
 }
 
 .onboard-btn {

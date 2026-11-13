@@ -166,6 +166,12 @@
         <p class="onboard-sub">先填有填的就好，這些都能之後在設定裡修改。</p>
         <div class="onboard-fields">
           <div class="field"><label for="obHeight">身高</label><div class="field-input"><input type="number" id="obHeight" step="0.5" min="80" max="250" placeholder="—"><span>cm</span></div></div>
+          <div class="field onboard-unit-field"><label>體重單位</label>
+            <div class="segmented onboard-unit" id="obUnit" role="group" aria-label="體重單位">
+              <button type="button" data-unit="kg" class="on" aria-pressed="true">公斤 kg</button>
+              <button type="button" data-unit="lb" aria-pressed="false">磅 lb</button>
+            </div>
+          </div>
           <div class="field"><label for="obWeight">目前體重</label><div class="field-input"><input type="number" id="obWeight" step="0.1" placeholder="—"><span id="obWeightUnit">kg</span></div></div>
           <div class="field"><label for="obGoal">目標體重</label><div class="field-input"><input type="number" id="obGoal" step="0.1" placeholder="—"><span id="obGoalUnit">kg</span></div></div>
           <div class="field"><label for="obDate">目標日期</label><div class="field-input">
